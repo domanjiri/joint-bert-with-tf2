@@ -1,0 +1,7 @@
+absl-py
+tensorflow>=2.1.0
+tensorflow_hub
+tensorflow-text
+bert-tensorflow
+bert-for-tf2
+sentencepiece
