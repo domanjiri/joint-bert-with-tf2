@@ -15,7 +15,6 @@ def main(argv):
     # load date from files and vectorization
     preprocess.Process(
         sentences = config.sentences_file,
-        labels = config.labels_file,
         intents = config.intents_file
     )
 
