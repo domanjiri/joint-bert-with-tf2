@@ -2,61 +2,36 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from typing import Tuple
 from absl import logging
 import numpy as np
 
 import tensorflow as tf
-import tensorflow_text as text
-from tensorflow.keras.models import Model
 from bert import bert_tokenization
 
 import config
 
-
 class Process(object):
 
-    def __init__(self,
-                 sentences : str = '',
-                 intents : str = ''):
-        self._file_path = {
-            'sentence' : sentences,
-            'intent' : intents,
-        }
-        # load data from file to memory
-        self.__load_data()
-
-        self._tokenizer = bert_tokenization.FullTokenizer(vocab_file = config.vocab_file)
+    def __init__(self, sentences, intents):
+        self._dataset = {'sentence': sentences, 'intent': intents}
+        self._tokenizer = bert_tokenization.FullTokenizer(vocab_file=config.vocab_file,
+                                                          do_lower_case=True)
         self.__vectorize()
 
-    def get_tokens(self):
+    def get_tokens(self) -> np.ndarray:
         return self._tokens
 
     def get_intents(self):
         return self._intents
 
-    def __load_data(self):
-        self._dataset = {key : tf.data.TextLineDataset(value) 
-                            for key, value in self._file_path.items()}
-        
-        # count data entities
-        def count_fn(data):
-            return len(list(data)) # TODO(Ebi): is there a way other than iteration? 
-        entities = set(count_fn(x) for x in list(self._dataset.values()))
-        
-        # check for any corruption in files
-        assert len(entities) == 1, "all files should have the same number of lines"
-
-        logging.info('file loaded into memory')
-
     def __vectorize(self):
 
-        def prepare_fn():
-            _tokens = []
-            data = [x.as_numpy_iterator() for x in self._dataset.values()]
-            for sentence, intent in zip(*data): # TODO(Ebi): should I iterate just through sentences?
-                tokens = self._tokenizer.tokenize(sentence)
-                _tokens.append(self._tokenizer.convert_tokens_to_ids(tokens))
-            return np.array(_tokens)
+        def prepare_fn(data):
+            data = ['[CLS]{}[SEP]'.format(x) for x in data.as_numpy_iterator()]
+            return np.array([self._tokenizer.convert_tokens_to_ids(
+                                self._tokenizer.tokenize(sentence))
+                                    for sentence in data])
 
         def padding_fn(data, max_len=50):
             return tf.keras.preprocessing.sequence.pad_sequences(
@@ -65,10 +40,63 @@ class Process(object):
                 truncating='post',
                 padding='post')
 
-        self._tokens = padding_fn(data=prepare_fn(), max_len=config.tokens_max_len)
+        self._tokens = padding_fn(data=prepare_fn(self._dataset['sentence']),
+                                  max_len=config.tokens_max_len)
+        
+        logging.info('sentences have processed')
         
         # make fixed lenght one_hot for each intent
-        self._intents = tf.feature_column.categorical_column_with_vocabulary_list(
+        intents_set = set(x for x in self._dataset['intent'].as_numpy_iterator())
+        categorical_c = tf.feature_column.categorical_column_with_vocabulary_list(
             key='intent',
-            vocabulary_list=set(x for x in self._dataset['intent'].as_numpy_iterator()))
+            vocabulary_list=intents_set)
+        self._intents = categorical_c #tf.feature_column.indicator_column(categorical_c)
+
+        logging.info('intents prepared as one_hot tensors')
+
+class ProcessFactory(object):
+
+    def __init__(self,
+                 sentences : str = '',
+                 intents : str = '',
+                 split : float = .2):
+        assert 0 < split < 1, "split number must be between zero and one"
+
+        self._split = split
+        self._file_path = {
+            'sentence' : sentences,
+            'intent' : intents,
+        }
+        # load data from file to memory
+        self.__load_data()
+
+    def get_data(self) -> Tuple[Process, Process]:
+        test, train = self.__split()
+        return Process(*train), Process(*test)
+
+    def get_intents_num(self) -> int:
+        intents = set(x for x in self._dataset['intent'].as_numpy_iterator())
+        return len(intents)
+
+    def __load_data(self):
+        self._dataset = {key : tf.data.TextLineDataset(value) 
+                            for key, value in self._file_path.items()}
+        
+        # count data entities
+        def count_fn(data):
+            return len(list(data)) # TODO(Ebi): is there a way better than iteration? 
+        entities = set(count_fn(x) for x in list(self._dataset.values()))
+        
+        # check for any corruption in files
+        assert len(entities) == 1, "all files should have the same number of lines"
+
+        self._entities_num = entities.pop()
+
+        logging.info('file loaded into memory')
+
+    def __split(self):
+        test_part = int(self._entities_num * self._split)
+        return (
+        (self._dataset['sentence'].take(test_part), self._dataset['intent'].take(test_part)), #test
+        (self._dataset['sentence'].skip(test_part), self._dataset['intent'].skip(test_part))) # train
 
