@@ -12,13 +12,22 @@ import model
 def main(argv):
     del argv
 
-    # load date from files and vectorization
-    preprocess.Process(
-        sentences = config.sentences_file,
-        intents = config.intents_file
+    dataset_factory = preprocess.ProcessFactory(
+        sentences=config.sentences_file,
+        intents=config.intents_file,
+        split=config.train_test_split
     )
+    train_set, test_set = dataset_factory.get_data()
 
     logging.info('after preprocess')
+
+    joint_model = model.CategoricalBert(
+        train=train_set,
+        test=test_set,
+        intents_num=dataset_factory.get_intents_num()
+        )
+
+
 
 if __name__ == '__main__':
     app.run(main)
