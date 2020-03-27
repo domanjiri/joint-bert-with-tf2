@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 
 from absl import logging
-import numpy as np
 import tensorflow as tf
 from transformers import TFBertModel
 
@@ -58,7 +57,7 @@ class CustomModel(tf.keras.Model):
         return slot_logits, intent_logits
 
 
-class CategoricalBert(object):
+class JointCategoricalBert(object):
     def __init__(self,
                  train : Process,
                  validation : Process,

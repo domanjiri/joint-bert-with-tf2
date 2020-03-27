@@ -6,13 +6,13 @@ from absl import logging
 from absl import app
 
 import config
-import preprocess
-import model
+from preprocess import ProcessFactory
+from model import JointCategoricalBert
 
 def main(argv):
     del argv
 
-    d_factory = preprocess.ProcessFactory(
+    d_factory = ProcessFactory(
         sentences=config.sentences_file,
         intents=config.intents_file,
         slots=config.slots_file,
@@ -20,14 +20,13 @@ def main(argv):
     data = d_factory.get_data()
     logging.info('after preprocess')
 
-    joint_model = model.CategoricalBert(
+    model = JointCategoricalBert(
         train=data['train'],
         validation=data['validation'],
         intents_num=d_factory.get_intents_num(),
         slots_num=d_factory.get_slots_num())
 
-    joint_model.fit()
-
+    model.fit()
 
 
 if __name__ == '__main__':
