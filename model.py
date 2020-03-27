@@ -3,79 +3,96 @@ from __future__ import division
 from __future__ import print_function
 
 from absl import logging
-
-import math
-import tensorflow_hub as hub
+import numpy as np
 import tensorflow as tf
-import bert
-from tensorflow.keras.models import Model
+from transformers import TFBertModel
 
 import config
 from preprocess import Process
 
-class CategoricalBert(object):
-    
-    def __init__(self,
-                 train : Process,
-                 test : Process,
-                 intents_num : int):
-        self._num_fine_tune_layers = config.num_fine_tune_layers
-        self._intents_num = intents_num
-        self._dataset = {
-            'sentence': train.get_tokens(),
-            'intent': train.get_intents(),
-            'test_sentence': test.get_tokens(),
-            'test_intent': test.get_intents(),
-        }
+#tf.config.experimental_run_functions_eagerly(True)
+
+class CustomBertLayer(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        super(CustomBertLayer, self).__init__(**kwargs)
+        self._bert = self._load_bert()
+
+    def _load_bert(self):
+        model = TFBertModel.from_pretrained(config.bert_model_name)
         
-        self._bert_layer = self._load_bert_layer()
-        self._model = self._definition()
-        self._fit()
-
-    def _load_bert_layer(self):
-        bert_params = bert.params_from_pretrained_ckpt(config.bert_model_dir)
-        bert_layer = bert.BertModelLayer.from_params(bert_params, name='bert')
-        # we will not retrain bert model
-        bert_layer.apply_adapter_freeze()
-
-        logging.info('bert layer created')
-        return bert_layer
-
-    def _definition(self):
-        max_seq_length = config.tokens_max_len
-
-        model = tf.keras.Sequential([
-            tf.keras.layers.Input(shape=(max_seq_length,), dtype='int32'),
-            self._bert_layer,
-            tf.keras.layers.Dropout(rate=0.1),
-            tf.keras.layers.Dense(self._intents_num, activation='softmax'),])
-
-        model.build(input_shape=(None, max_seq_length))
-        model.compile(
-            loss='sparse_categorical_crossentropy',
-            optimizer=tf.keras.optimizers.Adam(lr=5e-5),
-            loss_weights=[1.0],
-            metrics=['accuracy'])
-
-        model.summary()
-        logging.info('sequential model created')
+        logging.info('BERT weights loaded')
         return model
 
-    def _fit(self):
-        eval_callback = tf.keras.callbacks.ModelCheckpoint(
-            filepath=config.bert_weights_file,
-            save_weights_only=True,
-            verbose=1)
+    def build(self, input_shape):
+        super(CustomBertLayer, self).build(input_shape)
+
+    def call(self, inputs):
+        result = self._bert(inputs=inputs)
         
+        return result
+
+
+class CustomModel(tf.keras.Model):
+    def __init__(self,
+                 intents_num : int,
+                 slots_num : int):
+        super().__init__(name="joint_intent_slot")
+        self._bert_layer = CustomBertLayer()
+        self._dropout = tf.keras.layers.Dropout(rate=config.dropout_rate)
+        self._intent_classifier = tf.keras.layers.Dense(intents_num,
+                                                        activation='softmax',
+                                                        name='intent_classifier')
+        self._slot_classifier = tf.keras.layers.Dense(slots_num,
+                                                      activation='softmax',
+                                                      name='slot_classifier')
+
+    def call(self, inputs, training=False, **kwargs):
+        sequence_output, pooled_output = self._bert_layer(inputs, **kwargs)
+
+        sequence_output = self._dropout(sequence_output, training)
+        slot_logits = self._slot_classifier(sequence_output)
+
+        pooled_output = self._dropout(pooled_output, training)
+        intent_logits = self._intent_classifier(pooled_output)
+
+        return slot_logits, intent_logits
+
+
+class CategoricalBert(object):
+    def __init__(self,
+                 train : Process,
+                 validation : Process,
+                 intents_num : int,
+                 slots_num : int): 
+        self._dataset = {'train': train, 'validation': validation}
+        self._model = CustomModel(intents_num=intents_num, slots_num=slots_num)
+        self._compile()
+
+    def _compile(self):
+        optimizer = tf.keras.optimizers.Adam(learning_rate=config.learning_rate)
+        losses = [tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                  tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)]
+        loss_weights = [config.loss_weights['slot'], config.loss_weights['intent']]
+        metrics = [tf.keras.metrics.SparseCategoricalAccuracy('accuracy')]
+
+        self._model.compile(optimizer=optimizer,
+                            loss=losses,
+                            loss_weights=loss_weights,
+                            metrics=metrics)
+        logging.info("model compiled")
+
+
+    def fit(self):
         logging.info('before fit model')
         self._model.fit(
-            self._dataset['sentence'],
-            self._dataset['intent'],
+            self._dataset['train'].get_tokens(),
+            (self._dataset['train'].get_intents(), self._dataset['train'].get_slots()),
             validation_data=(
-                self._dataset['test_sentence'],
-                self._dataset['test_intent']),
-            epochs=5,
-            verbose=1,
-            batch_size=32,
-            callbacks=[eval_callback])
+                self._dataset['validation'].get_tokens(),
+                (self._dataset['validation'].get_intents(),
+                    self._dataset['validation'].get_slots())),
+            epochs=config.epochs_num,
+            batch_size=config.batch_size)
+
+        return self._model
 

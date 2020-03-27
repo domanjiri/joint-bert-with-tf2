@@ -12,22 +12,24 @@ import model
 def main(argv):
     del argv
 
-    dataset_factory = preprocess.ProcessFactory(
+    d_factory = preprocess.ProcessFactory(
         sentences=config.sentences_file,
         intents=config.intents_file,
-        split=config.train_test_split
-    )
-    train_set, test_set = dataset_factory.get_data()
-
+        slots=config.slots_file,
+        split=config.validation_set_ratio)
+    data = d_factory.get_data()
     logging.info('after preprocess')
 
     joint_model = model.CategoricalBert(
-        train=train_set,
-        test=test_set,
-        intents_num=dataset_factory.get_intents_num()
-        )
+        train=data['train'],
+        validation=data['validation'],
+        intents_num=d_factory.get_intents_num(),
+        slots_num=d_factory.get_slots_num())
+
+    joint_model.fit()
 
 
 
 if __name__ == '__main__':
     app.run(main)
+

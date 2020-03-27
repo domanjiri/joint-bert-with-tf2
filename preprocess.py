@@ -2,81 +2,130 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from typing import Tuple
+from typing import Tuple, Set
 from absl import logging
 import numpy as np
-
 import tensorflow as tf
-from bert import bert_tokenization
+from transformers import BertTokenizer
 
 import config
 
 class Process(object):
-
-    def __init__(self, sentences, intents):
-        self._dataset = {'sentence': sentences, 'intent': intents}
-        self._tokenizer = bert_tokenization.FullTokenizer(vocab_file=config.vocab_file,
-                                                          do_lower_case=True)
+    def __init__(self,
+                 sentence,
+                 intent,
+                 slot,
+                 intents_set,
+                 slots_set):
+        self._dataset = {'sentence': sentence, 'intent': intent, 'slot': slot}
+        self._intents_set = intents_set
+        self._slots_set = slots_set
+        self._intents_num = len(intents_set)
+        self._slots_num = len(slots_set)
+        self._tokenizer = BertTokenizer.from_pretrained(config.bert_model_name)
         self._vectorize()
 
     def get_tokens(self) -> np.ndarray:
         return self._tokens
 
-    def get_intents(self):
+    def get_intents(self) -> np.ndarray:
         return self._intents
 
+    def get_slots(self) -> np.ndarray:
+        return self._slots
+
     def _vectorize(self):
+        max_len = config.tokens_max_len
+        assert max_len > 0, "max length of token vector should be greater than zero"
 
-        def prepare_fn(data):
-            data = ['[CLS]{}[SEP]'.format(x) for x in data.as_numpy_iterator()]
-            return np.array([self._tokenizer.convert_tokens_to_ids(
-                                self._tokenizer.tokenize(sentence))
-                                    for sentence in data])
+        ids = np.empty((0, max_len), dtype=np.int32)
+        masks = np.empty((0, max_len), dtype=np.int32)
+        self._tokens = {'input_ids': ids, 'attention_masks': masks}
 
-        def padding_fn(data, max_len=50):
-            return tf.keras.preprocessing.sequence.pad_sequences(
-                data,
-                maxlen=max_len,
-                truncating='post',
-                padding='post')
+        def prepare_fn(sentence):
+            id = self._tokenizer.encode(str(sentence),
+                                        max_length=max_len)
+            post_pad = max_len - len(id)
+            mask = np.concatenate((np.ones(len(id)), np.zeros(post_pad)))
+            id = np.concatenate((id, np.zeros(post_pad)))
 
-        self._tokens = padding_fn(data=prepare_fn(self._dataset['sentence']),
-                                  max_len=config.tokens_max_len)
-        
+            self._tokens['input_ids'] = np.concatenate(
+                (self._tokens['input_ids'], [id]),
+                axis=0)
+            self._tokens['attention_masks'] = np.concatenate(
+                (self._tokens['attention_masks'], [mask]),
+                axis=0)
+
+        any(prepare_fn(x) for x in self._dataset['sentence'].as_numpy_iterator())
+        assert self._tokens['input_ids'].shape == self._tokens['attention_masks'].shape, "masks and ids did not match"
         logging.info('sentences have processed')
-        
-        # make fixed lenght one_hot for each intent
-        intents_set = set(x for x in self._dataset['intent'].as_numpy_iterator())
-        categorical_c = tf.feature_column.categorical_column_with_vocabulary_list(
-            key='intent',
-            vocabulary_list=intents_set)
-        self._intents = categorical_c #tf.feature_column.indicator_column(categorical_c)
 
-        logging.info('intents prepared as one_hot tensors')
+        intents_list = list(self._intents_set)
+        #def one_hot_fn(seek):
+        #    vector = np.zeros(self._intents_num, dtype=np.int32)
+        #    np.put(vector, intents_list.index(seek), 1)
+        #    return vector
+        self._intents = np.array([intents_list.index(x)
+                                    for x in self._dataset['intent'].as_numpy_iterator()])
+        logging.info('intents prepared as one-hot vectors')
+
+        # make fixed length multi-hot for slots
+        slots_list = list(self._slots_set)
+        def multi_hot_fn(seek):
+            seek = seek.decode('utf-8').split(' ')
+            seek = filter(lambda x: x != '0', seek)
+            vector = np.zeros(self._slots_num, dtype=np.int32)
+            any(np.put(vector, slots_list.index(x), 1) for x in seek)
+            return vector
+        self._slots = np.array([multi_hot_fn(x)
+                                    for x in self._dataset['slot'].as_numpy_iterator()])
+        logging.info('slots labels prepared as multi-hot vectors')
+
 
 class ProcessFactory(object):
-
     def __init__(self,
                  sentences : str = '',
                  intents : str = '',
+                 slots : str = '',
                  split : float = .2):
         assert 0 < split < 1, "split number must be between zero and one"
 
         self._split_size = split
         self._file_path = {
-            'sentence' : sentences,
-            'intent' : intents,
+            'sentence': sentences,
+            'intent': intents,
+            'slot': slots,
         }
         # load data from file to memory
         self._load_data()
 
     def get_data(self) -> Tuple[Process, Process]:
-        test, train = self._split()
-        return Process(*train), Process(*test)
+        splitted = self._split()
+        return {'train':
+                    Process(**splitted['train'],
+                            intents_set=self.get_intents_set(),
+                            slots_set=self.get_slots_set()),
+                'validation':
+                    Process(**splitted['validation'],
+                            intents_set=self.get_intents_set(),
+                            slots_set=self.get_slots_set())}
 
     def get_intents_num(self) -> int:
-        intents = set(x for x in self._dataset['intent'].as_numpy_iterator())
-        return len(intents)
+        return len(self.get_intents_set())
+
+    def get_intents_set(self) -> Set:
+        return set(x for x in self._dataset['intent'].as_numpy_iterator())
+
+    def get_slots_num(self) -> int:
+        return len(self.get_slots_set())
+
+    def get_slots_set(self) -> Set:
+        all_slots_label = []
+        def extract_labels_fn(chain):
+            any(all_slots_label.append(x) for x in chain.decode('utf-8').split(' '))
+        any(extract_labels_fn(x) for x in self._dataset['slot'].as_numpy_iterator())
+
+        return set(all_slots_label)
 
     def _load_data(self):
         self._dataset = {key : tf.data.TextLineDataset(value) 
@@ -84,19 +133,20 @@ class ProcessFactory(object):
         
         # count data entities
         def count_fn(data):
-            return len(list(data)) # TODO(Ebi): is there a way better than iteration? 
+            return len(list(data)) 
         entities = set(count_fn(x) for x in list(self._dataset.values()))
-        
-        # check for any corruption in files
         assert len(entities) == 1, "all files should have the same number of lines"
 
         self._entities_num = entities.pop()
-
         logging.info('file loaded into memory')
 
     def _split(self):
-        test_part = int(self._entities_num * self._split_size)
-        return (
-        (self._dataset['sentence'].take(test_part), self._dataset['intent'].take(test_part)), #test
-        (self._dataset['sentence'].skip(test_part), self._dataset['intent'].skip(test_part))) # train
+        validation_part = int(self._entities_num * self._split_size)
+        validation = {key: value.take(validation_part) for key, value in self._dataset.items()}
+        train = {key: value.skip(validation_part) for key, value in self._dataset.items()}
+
+        logging.info("{} entities for training and {} for validation".format(
+            self._entities_num - validation_part,
+            validation_part))
+        return {'validation': validation, 'train': train}
 
