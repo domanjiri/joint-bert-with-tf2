@@ -12,19 +12,19 @@ from model import JointCategoricalBert
 def main(argv):
     del argv
 
-    d_factory = ProcessFactory(
+    data_factory = ProcessFactory(
         sentences=config.sentences_file,
         intents=config.intents_file,
         slots=config.slots_file,
         split=config.validation_set_ratio)
-    data = d_factory.get_data()
+    data = data_factory.get_data()
     logging.info('after preprocess')
 
     model = JointCategoricalBert(
         train=data['train'],
         validation=data['validation'],
-        intents_num=d_factory.get_intents_num(),
-        slots_num=d_factory.get_slots_num())
+        intents_num=data_factory.get_intents_num(),
+        slots_num=data_factory.get_slots_num())
 
     model.fit()
 
