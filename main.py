@@ -4,10 +4,12 @@ from __future__ import print_function
 
 from absl import logging
 from absl import app
+import tensorflow
 
 import config
 from preprocess import ProcessFactory
 from model import JointCategoricalBert
+
 
 def main(argv):
     del argv
@@ -30,5 +32,6 @@ def main(argv):
 
 
 if __name__ == '__main__':
+    #tensorflow.config.experimental_run_functions_eagerly(True)
     app.run(main)
 

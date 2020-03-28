@@ -9,7 +9,6 @@ from transformers import TFBertModel
 import config
 from preprocess import Process
 
-#tf.config.experimental_run_functions_eagerly(True)
 
 class CustomBertLayer(tf.keras.layers.Layer):
     def __init__(self, **kwargs):

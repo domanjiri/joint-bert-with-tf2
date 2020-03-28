@@ -10,6 +10,7 @@ from transformers import BertTokenizer
 
 import config
 
+
 class Process(object):
     def __init__(self,
                  sentence,
@@ -131,22 +132,21 @@ class ProcessFactory(object):
         self._dataset = {key : tf.data.TextLineDataset(value) 
                             for key, value in self._file_path.items()}
         
-        # count data entities
         def count_fn(data):
             return len(list(data)) 
-        entities = set(count_fn(x) for x in list(self._dataset.values()))
-        assert len(entities) == 1, "all files should have the same number of lines"
+        samples = set(count_fn(x) for x in list(self._dataset.values()))
+        assert len(samples) == 1, "all files should have the same number of lines"
 
-        self._entities_num = entities.pop()
+        self._samples_num = samples.pop()
         logging.info('file loaded into memory')
 
     def _split(self):
-        validation_part = int(self._entities_num * self._split_size)
+        validation_part = int(self._samples_num * self._split_size)
         validation = {key: value.take(validation_part) for key, value in self._dataset.items()}
         train = {key: value.skip(validation_part) for key, value in self._dataset.items()}
 
-        logging.info("{} entities for training and {} for validation".format(
-            self._entities_num - validation_part,
+        logging.info("{} samples for training and {} for validation".format(
+            self._samples_num - validation_part,
             validation_part))
         return {'validation': validation, 'train': train}
 
