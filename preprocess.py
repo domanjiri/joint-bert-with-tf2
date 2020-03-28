@@ -101,7 +101,7 @@ class ProcessFactory(object):
         self._load_data()
 
     def get_data(self) -> Tuple[Process, Process]:
-        splitted = self._split()
+        splitted = self._split_samples()
         return {'train':
                     Process(**splitted['train'],
                             intents_set=self.get_intents_set(),
@@ -140,7 +140,7 @@ class ProcessFactory(object):
         self._samples_num = samples.pop()
         logging.info('file loaded into memory')
 
-    def _split(self):
+    def _split_samples(self):
         validation_part = int(self._samples_num * self._split_size)
         validation = {key: value.take(validation_part) for key, value in self._dataset.items()}
         train = {key: value.skip(validation_part) for key, value in self._dataset.items()}
