@@ -12,6 +12,7 @@ import config
 
 
 class Process(object):
+
     def __init__(self,
                  sentence,
                  intent,
@@ -84,6 +85,7 @@ class Process(object):
 
 
 class ProcessFactory(object):
+
     def __init__(self,
                  sentences : str = '',
                  intents : str = '',
@@ -124,6 +126,7 @@ class ProcessFactory(object):
         all_slots_label = []
         def extract_labels_fn(chain):
             any(all_slots_label.append(x) for x in chain.decode('utf-8').split(' '))
+
         any(extract_labels_fn(x) for x in self._dataset['slot'].as_numpy_iterator())
 
         return set(all_slots_label)
@@ -134,6 +137,7 @@ class ProcessFactory(object):
         
         def count_fn(data):
             return len(list(data)) 
+
         samples = set(count_fn(x) for x in list(self._dataset.values()))
         assert len(samples) == 1, "all files should have the same number of lines"
 

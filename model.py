@@ -11,6 +11,7 @@ from preprocess import Process
 
 
 class CustomBertLayer(tf.keras.layers.Layer):
+
     def __init__(self, **kwargs):
         super(CustomBertLayer, self).__init__(**kwargs)
         self._bert = self._load_bert()
@@ -31,6 +32,7 @@ class CustomBertLayer(tf.keras.layers.Layer):
 
 
 class CustomModel(tf.keras.Model):
+
     def __init__(self,
                  intents_num : int,
                  slots_num : int):
@@ -57,6 +59,7 @@ class CustomModel(tf.keras.Model):
 
 
 class JointCategoricalBert(object):
+
     def __init__(self,
                  train : Process,
                  validation : Process,
