@@ -11,6 +11,8 @@ from preprocess import Process
 
 
 class CustomBertLayer(tf.keras.layers.Layer):
+    """Custom layer to modify build and call methods of BERT if needed.
+    """
 
     def __init__(self, **kwargs):
         super(CustomBertLayer, self).__init__(**kwargs)
@@ -32,6 +34,14 @@ class CustomBertLayer(tf.keras.layers.Layer):
 
 
 class CustomModel(tf.keras.Model):
+    """Definition of the model to modify with custom call method.
+
+    Args:
+        intents_num(int):
+            Number of intents in the working dataset that used in softmax layer.
+        slots_num(int):
+            Number of slots labels in the working dataset that used in softmax layer.
+    """
 
     def __init__(self,
                  intents_num : int,
@@ -59,6 +69,19 @@ class CustomModel(tf.keras.Model):
 
 
 class JointCategoricalBert(object):
+    """Wrapper to model functions. The Model compiles with hyper-parameters and
+    will be ready for fit.
+
+    Args:
+        train(preprocess.Process):
+            Holds the training part of samples.
+        validation(preprocess.Process):
+            Holds the validation part of samples.
+        intents_num(int):
+            Number of intents in the working dataset which will be used in softmax layer.
+        slots_num(int):
+            Number of slots lables in the working dataset which will be used in softmax layer.
+    """
 
     def __init__(self,
                  train : Process,
@@ -70,6 +93,8 @@ class JointCategoricalBert(object):
         self._compile()
 
     def _compile(self):
+        """Compile the model with hyper-parameters that defined in the config file.
+        """
         optimizer = tf.keras.optimizers.Adam(learning_rate=config.learning_rate)
         losses = [tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                   tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)]
@@ -84,6 +109,9 @@ class JointCategoricalBert(object):
 
 
     def fit(self):
+        """Fit the compiled model to the dataset. Hyper-parameters such as number of
+        epochs defined in the config file.
+        """
         logging.info('before fit model')
         self._model.fit(
             self._dataset['train'].get_tokens(),
