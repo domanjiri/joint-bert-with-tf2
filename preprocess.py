@@ -36,8 +36,7 @@ class Process(object):
         self._dataset = {'sentence': sentence, 'intent': intent, 'slot': slot}
         self._intents_set = intents_set
         self._slots_set = slots_set
-        self._intents_num = len(intents_set)
-        self._slots_num = len(slots_set)
+        #self._intents_num = len(intents_set)
         self._tokenizer = BertTokenizer.from_pretrained(config.bert_model_name)
         self._vectorize()
 
@@ -68,8 +67,8 @@ class Process(object):
             id = self._tokenizer.encode(str(sentence),
                                         max_length=max_len)
             post_pad = max_len - len(id)
-            mask = np.concatenate((np.ones(len(id)), np.zeros(post_pad)))
-            id = np.concatenate((id, np.zeros(post_pad)))
+            mask = np.concatenate((np.ones(len(id), dtype=np.int32), np.zeros(post_pad, dtype=np.int32)))
+            id = np.concatenate((id, np.zeros(post_pad, dtype=np.int32)))
 
             self._tokens['input_ids'] = np.concatenate(
                 (self._tokens['input_ids'], [id]),
@@ -95,9 +94,10 @@ class Process(object):
         slots_list = list(self._slots_set)
         def multi_hot_fn(seek):
             seek = seek.decode('utf-8').split(' ')
-            seek = filter(lambda x: x != '0', seek)
-            vector = np.zeros(self._slots_num, dtype=np.int32)
-            any(np.put(vector, slots_list.index(x), 1) for x in seek)
+            ids = np.array([slots_list.index(x) for x in seek], dtype=np.int32)
+            
+            post_pad = max_len - len(ids)
+            vector = np.concatenate((ids, np.zeros(post_pad, dtype=np.int32)))
             return vector
         self._slots = np.array([multi_hot_fn(x)
                                     for x in self._dataset['slot'].as_numpy_iterator()])
