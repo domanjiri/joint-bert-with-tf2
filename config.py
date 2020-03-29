@@ -1,7 +1,7 @@
 # tensorflow eager mode. set True for debugging
 tf_eager_execution = False
 # BERTs configs
-bert_model_name = "bert-base-cased"
+bert_model_name = "bert-base-uncased"
 
 # paths of dataset files on disc
 sentences_file = 'data/atis.train.query.csv'

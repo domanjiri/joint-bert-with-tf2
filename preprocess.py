@@ -58,27 +58,25 @@ class Process(object):
     def _vectorize(self):
         max_len = config.tokens_max_len
         assert max_len > 0, "max length of token vector should be greater than zero"
-
-        ids = np.empty((0, max_len), dtype=np.int32)
-        masks = np.empty((0, max_len), dtype=np.int32)
-        self._tokens = {'input_ids': ids, 'attention_masks': masks}
-
+        
+        self._tokens = dict()
+        ids = list() 
+        mask = list()
         def prepare_fn(sentence):
-            id = self._tokenizer.encode(str(sentence),
-                                        max_length=max_len)
-            post_pad = max_len - len(id)
-            mask = np.concatenate((np.ones(len(id), dtype=np.int32), np.zeros(post_pad, dtype=np.int32)))
-            id = np.concatenate((id, np.zeros(post_pad, dtype=np.int32)))
+            sequence_dict = self._tokenizer.encode_plus(sentence,
+                                                        max_length=max_len,
+                                                        pad_to_max_length=True)
+             
 
-            self._tokens['input_ids'] = np.concatenate(
-                (self._tokens['input_ids'], [id]),
-                axis=0)
-            self._tokens['attention_masks'] = np.concatenate(
-                (self._tokens['attention_masks'], [mask]),
-                axis=0)
+            ids.append(sequence_dict['input_ids'])
+            mask.append(sequence_dict['attention_mask'])
+         
+        sentences_list = [prepare_fn(x.decode('utf-8')) 
+                                for x in self._dataset['sentence'].as_numpy_iterator()]
 
-        any(prepare_fn(x) for x in self._dataset['sentence'].as_numpy_iterator())
-        assert self._tokens['input_ids'].shape == self._tokens['attention_masks'].shape, "masks and ids did not match"
+        self._tokens['input_ids'] = np.array(ids, dtype=np.int32)
+        self._tokens['attention_mask'] = np.array(mask, dtype=np.int32)
+        assert self._tokens['input_ids'].shape == self._tokens['attention_mask'].shape, "mask and ids did not match"
         logging.info('sentences have processed')
 
         intents_list = list(self._intents_set)
