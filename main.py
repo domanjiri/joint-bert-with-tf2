@@ -4,7 +4,8 @@ from __future__ import print_function
 
 from absl import logging
 from absl import app
-import tensorflow
+
+import tensorflow as tf
 
 import config
 from preprocess import ProcessFactory
@@ -12,7 +13,11 @@ from model import JointCategoricalBert
 
 
 def main(argv):
+    """Main function for training process.
+    """
     del argv
+
+    tf.config.experimental_run_functions_eagerly(config.tf_eager_execution)
 
     data_factory = ProcessFactory(
         sentences=config.sentences_file,
@@ -27,11 +32,13 @@ def main(argv):
         validation=data['validation'],
         intents_num=data_factory.get_intents_num(),
         slots_num=data_factory.get_slots_num())
+    logging.info('after initializing model')
 
     model.fit()
 
+    # TODO(Ebi): Save trained model
+
 
 if __name__ == '__main__':
-    #tensorflow.config.experimental_run_functions_eagerly(True)
     app.run(main)
 

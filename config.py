@@ -1,3 +1,5 @@
+# tensorflow eager mode. set True for debugging
+tf_eager_execution = False
 # BERTs configs
 bert_model_name = "bert-base-cased"
 bert_model_dir = 'data/bert/wwm_uncased_L-24_H-1024_A-16'
@@ -17,3 +19,4 @@ dropout_rate = 0.1
 loss_weights = {'slot': 3., 'intent': 1.0}
 epochs_num = 5
 batch_size = 32
+
