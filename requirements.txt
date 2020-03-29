@@ -1,8 +1,4 @@
 absl-py
-tensorflow>=2.1.0
-tensorflow-text
-bert-tensorflow
-bert-for-tf2
-sentencepiece
+tensorflow>=2.0.0
 transformers
 torch
