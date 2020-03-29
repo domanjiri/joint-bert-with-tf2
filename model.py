@@ -115,11 +115,11 @@ class JointCategoricalBert(object):
         logging.info('before fit model')
         self._model.fit(
             self._dataset['train'].get_tokens(),
-            (self._dataset['train'].get_intents(), self._dataset['train'].get_slots()),
+            (self._dataset['train'].get_slots(), self._dataset['train'].get_intents()),
             validation_data=(
                 self._dataset['validation'].get_tokens(),
-                (self._dataset['validation'].get_intents(),
-                    self._dataset['validation'].get_slots())),
+                (self._dataset['validation'].get_slots(),
+                    self._dataset['validation'].get_intents())),
             epochs=config.epochs_num,
             batch_size=config.batch_size)
 
