@@ -2,15 +2,14 @@
 tf_eager_execution = False
 # BERTs configs
 bert_model_name = "bert-base-cased"
-bert_model_dir = 'data/bert/wwm_uncased_L-24_H-1024_A-16'
 
 # paths of dataset files on disc
-sentences_file = 'data/sentences'
-intents_file = 'data/intents'
-slots_file = 'data/labels'
+sentences_file = 'data/atis.train.query.csv'
+intents_file = 'data/atis.train.intent.csv'
+slots_file = 'data/atis.train.slots.csv'
 
 # data configs 
-validation_set_ratio = 0.2
+validation_set_ratio = 0.05
 
 # compile and fit
 tokens_max_len = 50
