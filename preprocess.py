@@ -12,8 +12,7 @@ import config
 
 
 class Process(object):
-    """Tokenize data loaded into the memory
-    and make fixed-width vectors from them.
+    """Tokenizing data and making fixed-width vectors from each sample.
 
     Args:
         sentence(tf.data.Dataset):
