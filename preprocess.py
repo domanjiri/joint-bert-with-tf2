@@ -4,6 +4,7 @@ from __future__ import print_function
 
 from typing import Tuple, Set
 from absl import logging
+
 import numpy as np
 import tensorflow as tf
 from transformers import BertTokenizer
@@ -21,10 +22,10 @@ class Process(object):
             Single words intents. The order matches with samples
         slot:(tf.data.Dataset):
             Row lables separated by space. The order matches with samples
-        intents_num(int):
-            Number of total intents in working dataset
-        slots_num(int):
-            Number of total slots in working dataset
+        intents_set(Set):
+            Set of intents in working dataset
+        slots_set(Set):
+            Set of slot labels in working dataset
     """
 
     def __init__(self,

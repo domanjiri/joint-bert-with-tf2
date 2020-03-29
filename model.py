@@ -80,7 +80,7 @@ class JointCategoricalBert(object):
         intents_num(int):
             Number of intents in the working dataset which will be used in softmax layer.
         slots_num(int):
-            Number of slots lables in the working dataset which will be used in softmax layer.
+            Number of slot lables in the working dataset which will be used in softmax layer.
     """
 
     def __init__(self,
