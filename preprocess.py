@@ -91,16 +91,30 @@ class Process(object):
 
         # make fixed length multi-hot for slots
         slots_list = list(self._slots_set)
-        def multi_hot_fn(seek):
+        def multi_hot_fn(seek, sentence):
             seek = seek.decode('utf-8').split(' ')
             seek = [x.replace('B-', 'I-') for x in seek]
-            ids = np.array([slots_list.index(x) for x in seek], dtype=np.int32)
-            
-            post_pad = max_len - len(ids)
-            vector = np.concatenate((ids, np.zeros(post_pad, dtype=np.int32)))
+            sentence = sentence.decode('utf-8').split(' ')
+            assert len(seek) == len(sentence), "words and labels must match"
+
+            sentence_list = []
+            for label, word in zip(seek, sentence):
+                tokens = self._tokenizer.tokenize(word)
+                label_id = slots_list.index(label)
+                label_id = 0 if label_id == slots_list.index('O') else label_id
+                zeros = len(tokens) - 1
+                label_list = [label_id] + [0] * zeros
+                sentence_list = sentence_list + label_list
+
+            sentence_vector = np.array([0] + sentence_list[:max_len - 2] + [0], dtype=np.int32)
+            post_pad = max_len - len(sentence_vector)
+            vector = np.concatenate((sentence_vector, np.zeros(post_pad, dtype=np.int32)))
+
             return vector
-        self._slots = np.array([multi_hot_fn(x)
-                                    for x in self._dataset['slot'].as_numpy_iterator()])
+
+        self._slots = np.array([multi_hot_fn(x, y)
+                                    for x, y in zip(self._dataset['slot'].as_numpy_iterator(),
+                                                    self._dataset['sentence'].as_numpy_iterator())])
         logging.info('slots labels prepared as multi-hot vectors')
 
 
