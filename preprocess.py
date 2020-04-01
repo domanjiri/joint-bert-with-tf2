@@ -93,6 +93,7 @@ class Process(object):
         slots_list = list(self._slots_set)
         def multi_hot_fn(seek):
             seek = seek.decode('utf-8').split(' ')
+            seek = [x.replace('B-', 'I-') for x in seek]
             ids = np.array([slots_list.index(x) for x in seek], dtype=np.int32)
             
             post_pad = max_len - len(ids)
@@ -172,7 +173,9 @@ class ProcessFactory(object):
         """
         all_slots_label = []
         def extract_labels_fn(chain):
-            any(all_slots_label.append(x) for x in chain.decode('utf-8').split(' '))
+            labels = chain.decode('utf-8').split(' ')
+            labels = [x.replace('B-', 'I-') for x in labels]
+            any(all_slots_label.append(x) for x in labels)
 
         any(extract_labels_fn(x) for x in self._dataset['slot'].as_numpy_iterator())
 
