@@ -46,6 +46,7 @@ jobs:
   cleanup:
     timeout-minutes: 30
     runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
     needs: [deploy, test]
     steps:
       - name: Run tests
