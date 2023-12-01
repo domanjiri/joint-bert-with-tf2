@@ -29,10 +29,24 @@ jobs:
         run: |
           echo "endpoint is ${{ steps.deploy.outputs.endpoint }}"
           echo "clean-up done!"
-  tests:
+  test:
     timeout-minutes: 30
     runs-on: ubuntu-latest
+    continue-on-error: true
     needs: [deploy]
+    steps:
+      - name: Run tests
+        env:
+          OUTPUT1: ${{needs.deploy.outputs.output1}}
+        run: |
+          echo $OUTPUT1
+          exit 1
+          echo "done!"
+
+  cleanup:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    needs: [deploy, test]
     steps:
       - name: Run tests
         env:
