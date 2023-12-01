@@ -1,0 +1,42 @@
+name: Manual Approve
+
+on:
+  release:
+    types: [published]
+  push:
+  
+permissions:
+      id-token: write   
+      contents: read   
+ 
+jobs:
+  deploy:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    #environment: manual-jobs
+    outputs:
+      output1: ${{ steps.deploy.outputs.endpoint }}
+    steps:
+      - name: Download the model
+        id: deploy
+        run: |
+          echo "prepared with for $API_ADDR"
+          python3 -m pip install black
+          pwd && ls -l
+          echo "endpoint=https://test.hello/" >> "$GITHUB_OUTPUT"
+      - name: Clean-up
+        if: failure()
+        run: |
+          echo "endpoint is ${{ steps.deploy.outputs.endpoint }}"
+          echo "clean-up done!"
+  tests:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    steps:
+      - name: Run tests
+        env:
+          OUTPUT1: ${{needs.deploy.outputs.output1}}
+        run: |
+          echo $OUTPUT1
+          echo "done!"
