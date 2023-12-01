@@ -1,0 +1,8 @@
+name: Install Python Requirements
+runs:
+  using: "composite"
+  steps:
+    - name: Install Requirements
+      shell: bash
+      run: python3 -m pip install black
+

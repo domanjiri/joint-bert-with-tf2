@@ -17,11 +17,14 @@ jobs:
     outputs:
       output1: ${{ steps.deploy.outputs.endpoint }}
     steps:
+      - name: Get The Code
+        uses: actions/checkout@v3
+      - name: Requisites
+        uses: ./.github/prepare
       - name: Download the model
         id: deploy
         run: |
           echo "prepared with for $API_ADDR"
-          python3 -m pip install black
           pwd && ls -l
           echo "endpoint=https://test.hello/" >> "$GITHUB_OUTPUT"
       - name: Clean-up
@@ -46,9 +49,13 @@ jobs:
   cleanup:
     timeout-minutes: 30
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ ! startsWith(github.ref, 'refs/tags/') }}
     needs: [deploy, test]
     steps:
+      - name: Get The Code
+        uses: actions/checkout@v3
+      - name: Requisites
+        uses: ./.github/prepare
       - name: Run tests
         env:
           OUTPUT1: ${{needs.deploy.outputs.output1}}
